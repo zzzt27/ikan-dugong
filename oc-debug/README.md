@@ -26,12 +26,12 @@ This is a shell script designed to automate the process of collecting debug logs
 
     *Using `curl`:*
     ```sh
-    curl -L [https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh](https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh) -o /usr/bin/oc_debug.sh
+    curl -L https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh -o /usr/bin/oc_debug.sh
     ```
 
     *Or using `wget`:*
     ```sh
-    wget [https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh](https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh) -O /usr/bin/oc_debug.sh
+    wget https://raw.githubusercontent.com/zzzt27/ikan-dugong/main/oc-debug/oc_debug.sh -O /usr/bin/oc_debug.sh
     ```
 
 2.  **Make the script executable.**
