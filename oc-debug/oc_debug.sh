@@ -13,10 +13,9 @@
 # --- Configuration ---
 # API URL for fetching logs
 API_URL="http://127.0.0.1:9090/logs?level=debug"
-# Temporary file for the raw, combined API logs
-RAW_API_LOG_FILE="/tmp/openclash_raw_api.log"
-# Final, filtered API log files
-INFO_API_LOG_FILE="/tmp/openclash_info_api.log"
+# Log file for the complete, unfiltered API output
+FULL_API_LOG_FILE="/tmp/openclash_full_api.log"
+# Log file for only the DEBUG messages from the API
 DEBUG_API_LOG_FILE="/tmp/openclash_debug_api.log"
 # Standard OpenClash debug script output
 SYSTEM_DEBUG_LOG_FILE="/tmp/openclash_debug.log"
@@ -101,7 +100,7 @@ while true; do
     if [ "$elapsed_time" -ge "$RESTART_WAIT_TIMEOUT" ]; then
         log_error "OpenClash API did not become available after $RESTART_WAIT_TIMEOUT seconds."
         log_error "Skipping initial API log capture."
-        touch "$RAW_API_LOG_FILE" # Create an empty file to avoid errors later
+        touch "$FULL_API_LOG_FILE" # Create an empty file to avoid errors later
         break
     fi
 
@@ -117,13 +116,13 @@ while true; do
         log_info "API is online! Capturing initial logs for $LOG_CAPTURE_DURATION seconds..."
         # API is up, start streaming logs for the specified duration and save the JSON response
         if [ -n "$SECRET" ]; then
-            curl --silent -H "$AUTH_HEADER" --max-time "$LOG_CAPTURE_DURATION" "$API_URL" > "$RAW_API_LOG_FILE" &
+            curl --silent -H "$AUTH_HEADER" --max-time "$LOG_CAPTURE_DURATION" "$API_URL" > "$FULL_API_LOG_FILE" &
         else
-            curl --silent --max-time "$LOG_CAPTURE_DURATION" "$API_URL" > "$RAW_API_LOG_FILE" &
+            curl --silent --max-time "$LOG_CAPTURE_DURATION" "$API_URL" > "$FULL_API_LOG_FILE" &
         fi
         # Wait for the capture to finish in the background
         wait $!
-        log_info "Initial API log capture complete. Saved to $RAW_API_LOG_FILE"
+        log_info "Initial API log capture complete. Saved to $FULL_API_LOG_FILE"
         break
     else
         log_info "API not ready yet (Status: $POLL_STATUS). Retrying in 1 second..."
@@ -131,16 +130,14 @@ while true; do
     sleep 1 # Wait 1 second before retrying
 done
 
-# 4. Process and split the raw API log into INFO and DEBUG files
-log_info "Processing and splitting API logs..."
-if [ -f "$RAW_API_LOG_FILE" ]; then
-    grep '{"type":"info"' "$RAW_API_LOG_FILE" > "$INFO_API_LOG_FILE"
-    grep '{"type":"debug"' "$RAW_API_LOG_FILE" > "$DEBUG_API_LOG_FILE"
-    log_info "API logs have been split into INFO and DEBUG files."
+# 4. Process the full API log to create the filtered debug log
+log_info "Filtering API logs..."
+if [ -s "$FULL_API_LOG_FILE" ]; then # -s checks if file exists and is not empty
+    grep '{"type":"debug"' "$FULL_API_LOG_FILE" > "$DEBUG_API_LOG_FILE"
+    log_info "Created filtered debug API log."
 else
-    log_error "Raw API log file not found. Cannot split logs."
-    # Create empty files to prevent the tar command from failing
-    touch "$INFO_API_LOG_FILE"
+    log_error "Full API log file is empty or not found. Cannot create filtered log."
+    # Create an empty file to prevent the tar command from failing
     touch "$DEBUG_API_LOG_FILE"
 fi
 
@@ -161,8 +158,8 @@ fi
 
 # 6. Package all three logs into a single archive
 log_info "Packaging logs into a compressed archive..."
-if [ -f "$INFO_API_LOG_FILE" ] && [ -f "$DEBUG_API_LOG_FILE" ] && [ -f "$SYSTEM_DEBUG_LOG_FILE" ]; then
-    tar -czvf "$OUTPUT_ARCHIVE" -C /tmp/ "$(basename "$INFO_API_LOG_FILE")" "$(basename "$DEBUG_API_LOG_FILE")" "$(basename "$SYSTEM_DEBUG_LOG_FILE")"
+if [ -f "$FULL_API_LOG_FILE" ] && [ -f "$DEBUG_API_LOG_FILE" ] && [ -f "$SYSTEM_DEBUG_LOG_FILE" ]; then
+    tar -czvf "$OUTPUT_ARCHIVE" -C /tmp/ "$(basename "$FULL_API_LOG_FILE")" "$(basename "$DEBUG_API_LOG_FILE")" "$(basename "$SYSTEM_DEBUG_LOG_FILE")"
     if [ $? -eq 0 ]; then
         log_info "Successfully created debug package!"
         echo "========================================================="
@@ -179,7 +176,7 @@ fi
 
 # 7. Cleanup temporary files
 log_info "Cleaning up temporary files..."
-rm -f "$RAW_API_LOG_FILE" "$INFO_API_LOG_FILE" "$DEBUG_API_LOG_FILE" "$SYSTEM_DEBUG_LOG_FILE"
+rm -f "$FULL_API_LOG_FILE" "$DEBUG_API_LOG_FILE" "$SYSTEM_DEBUG_LOG_FILE"
 
 log_info "Script finished."
 
